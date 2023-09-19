@@ -709,6 +709,12 @@ export default class Datepicker {
     setPosition = (position, isViewChange = false) => {
         position = position || this.opts.position;
 
+        // set parent of datepicker's container if not inline
+        if (!this.opts.inline) {
+            let parent = this.opts.parent || document.body;
+            parent.appendChild(this.$container);
+        }
+
         if (typeof position === 'function') {
             this.customHide = position({
                 $datepicker: this.$datepicker,
