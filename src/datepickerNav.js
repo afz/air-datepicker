@@ -81,7 +81,7 @@ export default class DatepickerNav {
             return template(dp);
         }
 
-        return dp.formatDate(dp.viewDate, template);
+        return dp.constructor.formatDate(dp.viewDate, template, dp.locale, opts.calendar);
     }
 
     handleNavStatus() {

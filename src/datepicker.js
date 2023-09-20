@@ -356,13 +356,12 @@ export default class Datepicker {
         }
     }
 
-    formatDate(date = this.viewDate, string) {
-        date = createDate(date, this.opts.calendar);
+    static formatDate(date, string, locale, calendar) {
+        date = createDate(date, calendar);
 
         if (!(date instanceof Date)) return;
 
         let result = string,
-            locale = this.locale,
             parsedDate = getParsedDate(date),
             dayPeriod = parsedDate.dayPeriod,
             decade = getDecade(date),
@@ -826,8 +825,8 @@ export default class Datepicker {
     }
 
     _getInputValue = (dateFormat) => {
-        let {selectedDates, opts} = this,
-            {multipleDates, multipleDatesSeparator} = opts;
+        let {selectedDates, locale, opts} = this,
+            {multipleDates, multipleDatesSeparator, calendar} = opts;
 
         if (!selectedDates.length) return '';
 
@@ -836,7 +835,7 @@ export default class Datepicker {
         let value = formatIsFunction
             ? dateFormat(multipleDates ? selectedDates : selectedDates[0])
             : selectedDates.map((date) => {
-                return this.formatDate(date, dateFormat);
+                return Datepicker.formatDate(date, dateFormat, locale, calendar);
             });
 
         value = formatIsFunction
@@ -850,7 +849,7 @@ export default class Datepicker {
         let dates = [],
             formattedDates = [],
             datepicker = this,
-            {selectedDates, locale, opts: {onSelect, multipleDates, range}} = datepicker,
+            {selectedDates, locale, opts: {calendar, onSelect, multipleDates, range}} = datepicker,
             isMultiple = multipleDates || range,
             formatIsFunction = typeof locale.dateFormat === 'function';
 
@@ -860,7 +859,7 @@ export default class Datepicker {
                 ? multipleDates
                     ? locale.dateFormat(dates)
                     : dates.map(date => locale.dateFormat(date))
-                : dates.map(date => this.formatDate(date, locale.dateFormat));
+                : dates.map(date => Datepicker.formatDate(date, locale.dateFormat, locale, calendar));
         }
 
         onSelect({
