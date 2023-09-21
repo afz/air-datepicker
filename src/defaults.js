@@ -74,6 +74,7 @@ export default {
     onChangeViewDate: false,
     onChangeView: false,
     onRenderCell: false,
+    onBeforeShow: false,
     onShow: false,
     onHide: false,
     onClickDayName: false,

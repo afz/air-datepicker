@@ -647,6 +647,10 @@ export default class Datepicker {
     show() {
         let {onShow, isMobile} = this.opts;
         this._cancelScheduledCall();
+        // Trigger user before show event, to be able to use datepicker api on before show
+        if (this.opts.onBeforeShow) {
+            this.opts.onBeforeShow(this);
+        }
 
         if (!this.visible && !this.hideAnimation) {
             this._createComponents();
