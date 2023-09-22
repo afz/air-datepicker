@@ -825,8 +825,10 @@ export default class Datepicker {
             $altField.value = this._getInputValue(altFieldDateFormat);
         }
 
-        this.$el.value = this._getInputValue(dateFormat);
-        this.$el.dispatchEvent(new Event('change'));
+        if (this.$el.value !== this._getInputValue(dateFormat)) {
+            this.$el.value = this._getInputValue(dateFormat);
+            this.$el.dispatchEvent(new Event('change'));
+        }
     }
 
     _getInputValue = (dateFormat) => {
