@@ -60,6 +60,7 @@ export declare type AirDatepickerOptions<E extends HTMLElement = HTMLInputElemen
     altFieldDateFormat?: string,
     toggleSelected?: boolean | (({datepicker, date}:{datepicker: AirDatepicker<E>, date: Date}) => boolean),
     keyboardNav?: boolean,
+    delayOnSelect?: number,
     selectedDates?: AirDatepickerDate[] | false,
     container?: AirDatepickerSelector,
     position?: AirDatepickerPosition | AirDatepickerPositionCallback,
