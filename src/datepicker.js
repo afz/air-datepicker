@@ -862,35 +862,49 @@ export default class Datepicker {
         }
 
         if (Date.now() - this._triggerOnChange.lastChangedTime < this.opts.delayOnSelect) {
-            setTimeout(this._triggerOnChange.bind(this), 10);
+            setTimeout(this._triggerOnChange.bind(this), 1);
         } else {
             this._triggerOnChange.triggering = false;
             this.$el.dispatchEvent(new Event('change'));
         }
     }
 
-    _triggerOnSelect() {
-        let dates = [],
-            formattedDates = [],
-            datepicker = this,
-            {selectedDates, locale, opts: {calendar, onSelect, multipleDates, range}} = datepicker,
-            isMultiple = multipleDates || range,
-            formatIsFunction = typeof locale.dateFormat === 'function';
-
-        if (selectedDates.length) {
-            dates = selectedDates.map(copyDate);
-            formattedDates = formatIsFunction
-                ? multipleDates
-                    ? locale.dateFormat(dates)
-                    : dates.map(date => locale.dateFormat(date))
-                : dates.map(date => Datepicker.formatDate(date, locale.dateFormat, locale, calendar));
+    _triggerOnSelect(lastSelectedTime = 0) {
+        if (lastSelectedTime) {
+            this._triggerOnSelect.lastSelectedTime = lastSelectedTime;
+            if (this._triggerOnSelect.triggering) {
+                return;
+            }
+            this._triggerOnSelect.triggering = true;
         }
 
-        onSelect({
-            date: isMultiple ? dates : dates[0],
-            formattedDate: isMultiple ? formattedDates : formattedDates[0],
-            datepicker
-        });
+        if (Date.now() - this._triggerOnSelect.lastSelectedTime < this.opts.delayOnSelect) {
+            setTimeout(this._triggerOnSelect.bind(this), 1);
+        } else {
+            this._triggerOnSelect.triggering = false;
+
+            let dates = [],
+                formattedDates = [],
+                datepicker = this,
+                {selectedDates, locale, opts: {calendar, onSelect, multipleDates, range}} = datepicker,
+                isMultiple = multipleDates || range,
+                formatIsFunction = typeof locale.dateFormat === 'function';
+
+                if (selectedDates.length) {
+                    dates = selectedDates.map(copyDate);
+                    formattedDates = formatIsFunction
+                        ? multipleDates
+                            ? locale.dateFormat(dates)
+                            : dates.map(date => locale.dateFormat(date))
+                        : dates.map(date => Datepicker.formatDate(date, locale.dateFormat, locale, calendar));
+                }
+
+                onSelect({
+                    date: isMultiple ? dates : dates[0],
+                    formattedDate: isMultiple ? formattedDates : formattedDates[0],
+                    datepicker
+                });
+        }
     }
 
     /**
@@ -1252,7 +1266,7 @@ export default class Datepicker {
         setTimeout(() => {
             this._setInputValue();
             if (this.opts.onSelect && !silent) {
-                this._triggerOnSelect();
+                this._triggerOnSelect(Date.now());
             }
         });
     }
@@ -1297,7 +1311,7 @@ export default class Datepicker {
         } else {
             this._setInputValue();
             if (onSelect) {
-                this._triggerOnSelect();
+                this._triggerOnSelect(Date.now());
             }
         }
     }
