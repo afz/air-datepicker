@@ -827,7 +827,7 @@ export default class Datepicker {
 
         if (this.$el.value !== this._getInputValue(dateFormat)) {
             this.$el.value = this._getInputValue(dateFormat);
-            this.$el.dispatchEvent(new Event('change'));
+            this._triggerOnChange(Date.now());
         }
     }
 
@@ -850,6 +850,23 @@ export default class Datepicker {
             : value.join(multipleDatesSeparator);
 
         return value;
+    }
+
+    _triggerOnChange(lastChangedTime = 0) {
+        if (lastChangedTime) {
+            this._triggerOnChange.lastChangedTime = lastChangedTime;
+            if (this._triggerOnChange.triggering) {
+                return;
+            }
+            this._triggerOnChange.triggering = true;
+        }
+
+        if (Date.now() - this._triggerOnChange.lastChangedTime < this.opts.delayOnSelect) {
+            setTimeout(this._triggerOnChange.bind(this), 10);
+        } else {
+            this._triggerOnChange.triggering = false;
+            this.$el.dispatchEvent(new Event('change'));
+        }
     }
 
     _triggerOnSelect() {

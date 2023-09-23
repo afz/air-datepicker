@@ -17,6 +17,7 @@ export default {
     altFieldDateFormat: 'T',
     toggleSelected: true,
     keyboardNav: true,
+    delayOnSelect: 250,
     selectedDates: false,
     container: '',
     isMobile: false,
