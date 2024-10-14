@@ -2,6 +2,7 @@ import DateCalendar from './calendar';
 import defaults from './defaults';
 import {
     copyDate,
+    getComputedZIndex,
     createDate,
     createElement,
     deepCopy,
@@ -719,13 +720,6 @@ export default class Datepicker {
 
     setPosition = (position, isViewChange = false) => {
         position = position || this.opts.position;
-
-        // set parent of datepicker's container if not inline
-        if (!this.opts.inline) {
-            let parent = this.opts.parent || document.body;
-            parent.appendChild(this.$container);
-        }
-
         if (typeof position === 'function') {
             this.customHide = position({
                 $datepicker: this.$datepicker,
@@ -823,6 +817,8 @@ export default class Datepicker {
         }
 
         this.$datepicker.style.cssText = `left: ${left + scrollLeft}px; top: ${top + scrollTop}px`;
+        // auto-set datepicker z-index
+        this.$datepicker.style.zIndex = getComputedZIndex(this.$el.parentElement);
     }
 
     _setInputValue = () => {

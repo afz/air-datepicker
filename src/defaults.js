@@ -4,7 +4,6 @@ import DateCalendar from './calendar';
 
 export default {
     classes: '',
-    parent: '',
     inline: false,
     locale: localeRu,
     calendar: 'gregorian',

@@ -304,6 +304,16 @@ export function closest(target, selector) {
 }
 
 /**
+ * Calculates the z-index (CSS) of a given HTML element by traversing its parents and checking the computed z-index values
+ * @param {HTMLElement} element
+ * @return {Number}
+ */
+export function getComputedZIndex(element) {
+    let zIndex = parseInt(document.defaultView.getComputedStyle(element).zIndex) || 0;
+    return zIndex? zIndex : (element.parentElement? getComputedZIndex(element.parentElement) : 0);
+}
+
+/**
  * Clamps number between min and max
  * @param {Number} val
  * @param {Number} min
