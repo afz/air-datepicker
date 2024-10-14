@@ -353,6 +353,15 @@ export function deepMerge(target, ...objects) {
 }
 
 /**
+ * Checks if ISO date string consists only of numbers
+ * @param {string} dateString
+ * @returns {boolean}
+ */
+function dateStringIsDateOnly(dateString) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(dateString);
+}
+
+/**
  * Creates Date object from string or number. If passed param is instance of Date, then just returns it.
  * @param {number|string|Date} date
  * @return {Date | boolean}
@@ -361,6 +370,12 @@ export function createDate(date, calendar) {
     let resultDate = date;
 
     if (!(date instanceof Date)) {
+        // If string is date-only string, we should add time to it
+        // so created date will be in a local time
+        // https://github.com/t1m0n/air-datepicker/issues/589
+        if (typeof date === 'string' && dateStringIsDateOnly(date)) {
+            date += 'T00:00:00';
+        }
         resultDate = new DateCalendar(calendar).Date(date);
     }
 

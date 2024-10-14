@@ -1,4 +1,3 @@
-import DateCalendar from "./calendar";
 export default {
     today: {
         content: dp => dp.locale.today,
