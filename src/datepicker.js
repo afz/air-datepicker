@@ -818,7 +818,7 @@ export default class Datepicker {
 
         this.$datepicker.style.cssText = `left: ${left + scrollLeft}px; top: ${top + scrollTop}px`;
         // auto-set datepicker z-index
-        this.$datepicker.style.zIndex = getComputedZIndex(this.$el.parentElement);
+        this.$datepicker.style.zIndex = getComputedZIndex(this.$el.parentElement) + 5;
     }
 
     _setInputValue = () => {
