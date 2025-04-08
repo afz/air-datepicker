@@ -22,141 +22,282 @@ export default class JalaliDate extends Date {
     ];
 
     #date;
-    #jalaliEpoch = 1948320.5;
-    #gregorianEpoch = 1721425.5;
-    #gMonthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    #jMonthDays = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29];
 
     #cached_date_ts = null;
     #cached_date = {
-        'year'      : 0,
-        'month'     : 0,
-        'day'       : 0,
-        'weekDay'   : 0,
-        'monthDays' : 0,
-        'yearDay'   : 0
+        'year'  : 0,
+        'month' : 0,
+        'day'   : 0,
+        'wday'  : 0,
+        'mday'  : 0,
     };
     #cached_utc_date_ts = null;
     #cached_utc_date = {
-        'year'      : 0,
-        'month'     : 0,
-        'day'       : 0,
-        'weekDay'   : 0,
-        'monthDays' : 0,
-        'yearDay'   : 0
+        'year'  : 0,
+        'month' : 0,
+        'day'   : 0,
+        'wday'  : 0,
+        'mday'  : 0,
     };
 
-    #leap_persian(year) {
-        return ((((((year - ((year > 0) ? 474 : 473)) % 2820) + 474) + 38) * 682) % 2816) < 682;
+    /**
+     * Converts a Gregorian date to Julian Day Number.
+     *
+     * @param   gy Gregorian year
+     * @param   gm Gregorian month (1–12)
+     * @param   gd Gregorian day (1–31)
+     * @return  Julian Day Number
+     */
+    #gregorian_to_jdn(gy, gm, gd) {
+        // Adjust month and year for January and February (they are treated as months 13 and 14 of the previous year)
+        if (gm <= 2) {
+            gm += 12;
+            gy--;
+        }
+
+        // Century correction (account for the 100-year rule in Gregorian leap years)
+        let A = Math.floor(gy / 100);
+        // This corrects the leap year discrepancies in the Gregorian calendar
+        let B = 2 - A + Math.floor(A / 4);
+
+        // JDN formula based on Gregorian calendar rules
+        return Math.floor(365.25 * (gy + 4716)) + Math.floor(30.6001 * (gm + 1)) + gd + B - 1524.5;
     }
 
-    #leap_gregorian(year) {
-        return ((year % 4) == 0) && (((year % 100) != 0) || ((year % 400) == 0));
-    }
+    /**
+     * Converts a Julian Day Number (JDN) to Gregorian date.
+     *
+     * @param   jdn    Julian Day Number
+     * @return  Gregorian date (year, month, day)
+     */
+    #jdn_to_gregorian(jdn) {
+        // Step 1: Adjust JDN to account for fractional days
+        let N = jdn + 0.5;  // Add 0.5 to account for fractional days in JDN.
 
-    #persian_to_jd(year, month, day) {
-        let epbase, epyear, exyear;
+        // Step 2: Extract the integer part of the Julian Day Number (Z) and the fractional part (F)
+        let Z = Math.floor(N);  // The integer part represents the Julian date number.
+        let F = N - Z;  // The fractional part represents the time of day.
 
-        exyear = Math.floor((month - 1) / 12);
-        year   = year + exyear;
-        month  = month - exyear * 12;
+        // Step 3: Calculate the number of days since a given reference date
+        let A = Math.floor((Z - 1867216.25) / 36524.25);  // Adjust for the leap year cycle difference between Julian and Gregorian calendars
+        let B = Z + 1 + A - Math.floor(A / 4);  // Apply further correction for leap years and century adjustments.
 
-        epbase = year - ((year >= 0)? 474 : 473);
-        epyear = 474 + (epbase % 2820);
+        // Step 4: Calculate the Julian year (D) and convert Julian Day to Gregorian date
+        let C = B + 1524;  // Get the final value after all corrections
+        let D = Math.floor((C - 122.1) / 365.25);  // Calculate the year by considering the leap years and regular years
+        let E = Math.floor(365.25 * D);  // Number of days in the year
+        let G = Math.floor((C - E) / 30.6001);  // Calculate month and adjust based on the fractional days
 
-        return day +
-            ((month <= 7)? ((month - 1) * 31) : (((month - 1) * 30) + 6)) +
-            Math.floor(((epyear * 682) - 110) / 2816) +
-            (epyear - 1) * 365 +
-            Math.floor(epbase / 2820) * 1029983 +
-            (this.#jalaliEpoch - 1);
-    }
+        // Step 5: Convert to day, month, and year
+        let gd = C - E - Math.floor(30.6001 * G) + F;  // Calculate the day of the month based on the remaining days
 
-    #jd_to_persian(jd) {
-        let year, month, day, wday, depoch, cycle, cyear, ycycle, aux1, aux2, yday;
-
-        jd = Math.floor(jd) + 0.5;
-        wday = Math.floor(jd + 1.5) % 7;
-
-        depoch = jd - this.#persian_to_jd(475, 1, 1);
-        cycle = Math.floor(depoch / 1029983);
-        cyear = depoch % 1029983;
-        if (cyear == 1029982) {
-            ycycle = 2820;
+        // Step 6: Determine the month
+        let gm;
+        if (G < 14) {
+            gm = G - 1;  // If month is less than 14, it's between March and December
         } else {
-            aux1 = Math.floor(cyear / 366);
-            aux2 = cyear % 366;
-            ycycle = Math.floor(((2134 * aux1) + (2816 * aux2) + 2815) / 1028522) +
-            aux1 + 1;
+            gm = G - 13;  // If month is greater than or equal to 14, it's January or February
         }
 
-        year = ycycle + (2820 * cycle) + 474;
-        if (year <= 0) {
-            year--;
+        // Step 7: Adjust the year based on the month
+        let gy;
+        if (gm > 2) {
+            gy = D - 4716;  // For months March to December, adjust based on the Julian year calculation
+        } else {
+            gy = D - 4715;  // For months January and February, adjust the year for leap years and calendar transitions
         }
-        yday = (jd - this.#persian_to_jd(year, 1, 1)) + 1;
-        month = (yday <= 186) ? Math.ceil(yday / 31) : Math.ceil((yday - 6) / 30);
-        day = (jd - this.#persian_to_jd(year, month, 1)) + 1;
 
+        // Return the final Gregorian date
         return {
-            'year'      : year,
-            'month'     : month,
-            'day'       : day,
-            'weekDay'   : wday,
-            'monthDays' : this.#jMonthDays[month - 1] + (month == 12? Number(this.#leap_persian(year)) : 0),
-            'yearDay'   : yday
+            year: gy,
+            month: gm,
+            day: Math.floor(gd),
+            leap: ((gy % 4) == 0) && (((gy % 100) != 0) || ((gy % 400) == 0)),
         };
     }
 
-    #gregorian_to_jd(year, month, day) {
-        return (this.#gregorianEpoch - 1) +
-            (365 * (year - 1)) +
-            Math.floor((year - 1) / 4) +
-            (-Math.floor((year - 1) / 100)) +
-            Math.floor((year - 1) / 400) +
-            Math.floor(
-                (((367 * month) - 362) / 12) +
-                ((month <= 2)? 0 : (this.#leap_gregorian(year)? -1 : -2)) +
-                day
-            );
-    }
+    /**
+     * Converts a Persian (Jalali) date to Julian Day Number.
+     *
+     * @param   jy Persian year
+     * @param   jm Persian month (1–12)
+     * @param   jd Persian day (1–31)
+     * @param   leap leap year flag
+     * @return  Julian Day Number
+     */
+    #persian_to_jdn(jy, jm, jd, leap) {
+        const breaks = [
+            -61, 9, 38, 199, 426, 686, 756, 818, 1111, 1181, 1210,
+            1635, 2060, 2097, 2192, 2262, 2324, 2394, 2456, 3178
+        ];
 
-    #jd_to_gregorian(jd) {
-        let depoch, quadricent, dqc, cent, dcent, quad, dquad, yindex, month, day, year, yday, wday, leapadj;
+        const breaksCount = breaks.length;
 
-        jd = Math.floor(jd - 0.5) + 0.5;
-        wday = Math.floor(jd + 1.5) % 7;
+        let jump = 0;
+        let leapJ = -14;
+        let lastBreak = breaks[0];
 
-        depoch = jd - this.#gregorianEpoch;
-        quadricent = Math.floor(depoch / 146097);
-
-        dqc = depoch % 146097;
-        cent = Math.floor(dqc / 36524);
-        dcent = dqc % 36524;
-        quad = Math.floor(dcent / 1461);
-        dquad = dcent % 1461;
-        yindex = Math.floor(dquad / 365);
-        year = (quadricent * 400) + (cent * 100) + (quad * 4) + yindex;
-        if (!((cent == 4) || (yindex == 4))) {
-            year++;
+        if (jy < lastBreak || jy >= breaks[breaksCount - 1]) {
+            throw new Error('Invalid Persian/Jalali year : ' + jy);
         }
 
-        yday = jd - this.#gregorian_to_jd(year, 1, 1);
-        leapadj = (jd < this.#gregorian_to_jd(year, 3, 1)) ? 0 : (this.#leap_gregorian(year) ? 1 : 2);
-        month = Math.floor((((yday + leapadj) * 12) + 373) / 367);
-        day = (jd - this.#gregorian_to_jd(year, month, 1)) + 1;
+        // Loop to determine leap years in the Jalali cycle
+        for (let i = 1; i < breaksCount; i++) {
+            let breakYear = breaks[i];
+            jump = breakYear - lastBreak;
+            if (jy < breakYear) {
+                break;
+            }
+
+            leapJ = leapJ + Math.floor(jump / 33) * 8 + Math.floor((jump % 33) / 4);
+            lastBreak = breakYear;
+        }
+
+        // Calculate the leap years from the start of Jalali epoch to the current year
+        let n = jy - lastBreak;
+        leapJ = leapJ + Math.floor(n / 33) * 8 + Math.floor(((n % 33) + 3) / 4);
+
+        // Special adjustment
+        if ((jump % 33) === 4 && (jump - n) === 4) {
+            leapJ += 1;
+        }
+
+        // Initialize Gregorian year and leap year count
+        let gy = jy + 621;
+
+        // Calculate the leap years in the Gregorian calendar
+        let leapG = Math.floor(gy / 4) - Math.floor((Math.floor(gy / 100) + 1) * 3 / 4) - 150;
+
+        // differ days between year's first day of two calendar
+        let day1f = 20 + leapJ - leapG;
+
+        // determine if this Persian/Jalali year is leap
+        if (jump - n < 6) {
+            n = n - jump + Math.floor((jump + 4) / 33) * 33;
+        }
+        leap.ok = ((((n + 1) % 33) - 1) % 4) === 0;
+
+        // JDN of day 1 month 1 of Jalali year
+        let jy_jdn1f = this.#gregorian_to_jdn(gy, 3, day1f);
+
+        // Standard days in Persian/Jalali calendar
+        let j_d_m = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29];
+
+        let days_in_year = 0;
+
+        // Add the days in the months of the current year
+        for (let i = 0; i < jm - 1; i++) {
+            days_in_year += j_d_m[i];
+        }
+
+        // Add given day
+        days_in_year += jd - 1;
+
+        return jy_jdn1f + days_in_year;
+    }
+
+    /**
+     * Converts Julian Day Number to Persian/Jalali date.
+     *
+     * @param   jdn    Julian Day Number
+     * @return  Persian date (year, month, day)
+     */
+    #jdn_to_persian(jdn) {
+        const gDate = this.#jdn_to_gregorian(jdn);
+        let jLeap = {ok: false};
+        let jy = gDate.year - 621;
+
+        let jy_jdn1f, remain_days;
+        do {
+            // JDN of day 1 month 1 of Jalali year
+            jy_jdn1f = this.#persian_to_jdn(jy, 1, 1, jLeap);
+            remain_days = jdn - jy_jdn1f;
+            if (remain_days >= 0) {
+                break;
+            }
+
+            jy = jy - 1;
+        } while (true);
+
+        let jm, jd;
+        if (remain_days <= 185) {
+            jm = 1 + Math.floor(remain_days / 31);
+            jd = (remain_days % 31) + 1;
+        } else {
+            remain_days = remain_days - 186;
+            jm = 7 + Math.floor(remain_days / 30);
+            jd = (remain_days % 30) + 1;
+        }
 
         return {
-            'year'      : year,
-            'month'     : month,
-            'day'       : day,
-            'weekDay'   : wday,
-            'monthDays' : this.#gMonthDays[month - 1] + (month == 2? Number(this.#leap_gregorian(year)) : 0),
-            'yearDay'   : yday
+            year: jy,
+            month: jm,
+            day: jd,
+            leap: jLeap.ok,
         };
     }
 
-    #parseDate(string, convertToPersian) {
+    /**
+     * Converts a Gregorian date to a Jalali (Persian) date.
+     *
+     * @param   gy Gregorian year
+     * @param   gm Gregorian month (1–12)
+     * @param   gd Gregorian day (1–31)
+     * @return  Jalali date
+     */
+    gregorian_to_persian(gy, gm, gd) {
+        // Adjust year if month greater than 12 or lesser than 1
+        gy = gy + ((gm <= 0) ? -1 : (gm > 12 ? 1 : 0));
+        // Adjust month
+        gm = ((gm + 12) % 12) || 12;
+
+        const jDate = this.#jdn_to_persian(this.#gregorian_to_jdn(gy, gm, gd));
+
+        // start day of week, 0 = Sunday, 6 = Saturday
+        const wday = new Date(gy, gm - 1, gd).getDay();
+
+        return {
+            year: jDate.year,
+            month: jDate.month,
+            day: jDate.day,
+            wday: wday,
+            mday: (jDate.month < 7) ? 31 : (jDate.month < 12) ? 30 : (jDate.leap ? 30 : 29),
+        };
+    }
+
+    /**
+     * Converts a Jalali (Persian) date to a Gregorian date.
+     *
+     * @param   jy Jalali year
+     * @param   jm Jalali month (1–12)
+     * @param   jd Jalali day (1–31)
+     * @return  Gregorian date
+     */
+    persian_to_gregorian(jy, jm, jd) {
+        // Adjust year if month greater than 12 or lesser than 1
+        jy = jy + ((jm <= 0) ? -1 : (jm > 12 ? 1 : 0));
+        // Adjust month
+        jm = ((jm + 12) % 12) || 12;
+
+        let jLeap = {ok: false};
+        const gDate = this.#jdn_to_gregorian(this.#persian_to_jdn(jy, jm, jd, jLeap));
+
+        // Days in Gregorian months
+        const g_d_m = [31, gDate.leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+        // start day of week, 0 = Sunday, 6 = Saturday
+        const wday = new Date(gDate.year, gDate.month - 1, gDate.day).getDay();
+
+        return {
+            year: gDate.year,
+            month: gDate.month,
+            day: gDate.day,
+            wday: wday,
+            mday: g_d_m[gDate.month - 1],
+        };
+    }
+
+    #parseDate(string, convertToGregorian) {
         /*
          http://en.wikipedia.org/wiki/ISO_8601
          http://dygraphs.com/date-formats.html
@@ -208,11 +349,11 @@ export default class JalaliDate extends Date {
             day = +match[1];
             year = day;
         }
-        if (convertToPersian) {
-            let persian = this.#jd_to_gregorian(this.#persian_to_jd(year, month, day));
-            year = persian.year;
-            month = persian.month;
-            day = persian.day;
+        if (convertToGregorian) {
+            let gDate = this.persian_to_gregorian(year, month, day);
+            year = gDate.year;
+            month = gDate.month;
+            day = gDate.day;
         }
         let date = new Date(year, month - 1, day, hour, minute, seconds, millis);
         if (isNonLocal) {
@@ -230,12 +371,12 @@ export default class JalaliDate extends Date {
     #persianDate = function () {
         if (this.#cached_date_ts != +this.#date) {
             this.#cached_date_ts = +this.#date;
-            this.#cached_date = this.#jd_to_persian(
-                this.#gregorian_to_jd(this.#date.getFullYear(), this.#date.getMonth() + 1, this.#date.getDate())
+            this.#cached_date = this.gregorian_to_persian(
+                this.#date.getFullYear(), this.#date.getMonth() + 1, this.#date.getDate()
             );
         }
 
-        return this.#cached_date
+        return this.#cached_date;
     }
 
     /**
@@ -244,14 +385,12 @@ export default class JalaliDate extends Date {
     #persianUTCDate() {
         if (this.#cached_utc_date_ts != +this.#date) {
             this.#cached_utc_date_ts = +this.#date;
-            this.#cached_utc_date = this.#jd_to_persian(
-                this.#gregorian_to_jd(
-                    this.#date.getUTCFullYear(), this.#date.getUTCMonth() + 1, this.#date.getUTCDate()
-                )
+            this.#cached_utc_date = this.gregorian_to_persian(
+                this.#date.getUTCFullYear(), this.#date.getUTCMonth() + 1, this.#date.getUTCDate()
             );
         }
 
-        return this.#cached_utc_date
+        return this.#cached_utc_date;
     }
 
     /**
@@ -266,8 +405,8 @@ export default class JalaliDate extends Date {
         if (dayValue !== undefined) {
             persian['day'] = dayValue;
         }
-        let new_date = this.#jd_to_gregorian(
-            this.#persian_to_jd(persian['year'], persian['month'], persian['day'])
+        let new_date = this.persian_to_gregorian(
+            persian['year'], persian['month'], persian['day']
         );
         this.#date.setFullYear(new_date.year);
         this.#date.setMonth(new_date.month - 1, new_date.day);
@@ -282,8 +421,8 @@ export default class JalaliDate extends Date {
             persian['day'] = dayValue;
         }
         persian[which] = value;
-        let new_date = this.#jd_to_gregorian(
-            this.#persian_to_jd(persian['year'], persian['month'], persian['day'])
+        let new_date = this.persian_to_gregorian(
+            persian['year'], persian['month'], persian['day']
         );
         this.#date.setUTCFullYear(new_date.year);
         this.#date.setUTCMonth(new_date.month - 1, new_date.day);
@@ -316,8 +455,8 @@ export default class JalaliDate extends Date {
         return this.#persianUTCDate()['year'];
     }
 
-    getMonthDays(monthValue) {
-        return (this.#leap_persian(this.#persianDate()['year']) && monthValue == 11)? 30 : this.#jMonthDays[monthValue];
+    getmday(monthValue) {
+        return (monthValue < 6) ? 31 : (monthValue < 11) ? 30 : (this.#persianDate()['leap'] ? 30 : 29);
     }
 
     /**
@@ -359,7 +498,7 @@ export default class JalaliDate extends Date {
      * milliseconds in a Date object since January 1, 1970, 00:00:00, universal time.
      */
     static UTC(year, month, date, hours, minutes, seconds, milliseconds) {
-        let d = this.#jd_to_gregorian(this.#persian_to_jd(year, month + 1, date || 1));
+        let d = this.persian_to_gregorian(year, month + 1, date || 1);
         return Date.UTC(d.year, d.month - 1, d.day, hours || 0, minutes || 0, seconds || 0, milliseconds || 0);
     }
 
@@ -397,14 +536,14 @@ export default class JalaliDate extends Date {
         super();
         if (typeof a == 'string') {
             this.#date = this.#parseDate(a, true);
-            if (!this.#date) throw 'Cannot parse date string'
+            if (!this.#date) throw 'Cannot parse date string';
         } else if (arguments.length == 0) {
             this.#date = new Date();
         } else if (arguments.length == 1) {
-            this.#date = new Date((a instanceof JalaliDate)?a._d:a);
+            this.#date = new Date((a instanceof JalaliDate) ? a._d : a);
         } else {
-            let persian = this.#jd_to_gregorian(
-                this.#persian_to_jd(a, (month || 0) + 1, day === undefined? 1 : (day || 0))
+            let persian = this.persian_to_gregorian(
+                a, (month || 0) + 1, day === undefined ? 1 : (day || 0)
             );
             this.#date = new Date(
                 persian.year, persian.month - 1, persian.day, hour || 0, minute || 0, second || 0, millisecond || 0
@@ -413,15 +552,15 @@ export default class JalaliDate extends Date {
 
         // proxy to internal Date methods
         this.#proxyProps.forEach((prop) => {
-            this[prop] = function() {
+            this[prop] = function () {
                 return this.#date[prop].apply(this.#date, arguments);
-            }
+            };
         });
         // proxy to format method
         this.#proxyToProps.forEach((prop) => {
-            this[prop] = function() {
+            this[prop] = function () {
                 return this.#format(prop, ...Array.from(arguments));
-            }
+            };
         });
     }
 
